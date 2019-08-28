@@ -2,7 +2,7 @@ package com.aranaira.arcanearchives.tileentities;
 
 import com.aranaira.arcanearchives.AAGuiHandler;
 import com.aranaira.arcanearchives.ArcaneArchives;
-import com.aranaira.arcanearchives.config.ConfigHandler;
+import com.aranaira.arcanearchives.data.ServerNetwork;
 import com.aranaira.arcanearchives.inventory.handlers.ITroveItemHandler;
 import com.aranaira.arcanearchives.inventory.handlers.OptionalUpgradesHandler;
 import com.aranaira.arcanearchives.inventory.handlers.SizeUpgradeItemHandler;
@@ -15,8 +15,8 @@ import com.aranaira.arcanearchives.types.enums.UpgradeType;
 import com.aranaira.arcanearchives.util.ItemUtils;
 import com.aranaira.arcanearchives.util.PlayerUtil;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import net.minecraft.block.Block;
 import net.minecraft.client.util.RecipeItemHelper;
-import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Items;
@@ -41,7 +41,7 @@ public class RadiantTroveTileEntity extends ImmanenceTileEntity implements IMani
 	public static int BASE_COUNT = 64 * 512;
 	private final TroveItemHandler inventory = new TroveItemHandler(this);
 	private long lastClick = 0;
-	private int lastTick = 0;
+	private long lastTick = 0;
 	private UUID lastUUID = null;
 	public boolean wasCreativeDrop = false;
 
@@ -49,7 +49,7 @@ public class RadiantTroveTileEntity extends ImmanenceTileEntity implements IMani
 		return lastClick;
 	}
 
-	public int getLastTick () {
+	public long getLastTick () {
 		return lastTick;
 	}
 
@@ -181,12 +181,10 @@ public class RadiantTroveTileEntity extends ImmanenceTileEntity implements IMani
 			return;
 		}
 
-		// TODO: Replace with system time
-		int curTick = world.getMinecraftServer().getTickCounter();
-		if (curTick - lastTick < 3) {
+		if ((System.currentTimeMillis() - lastTick) < 150) {
 			return;
 		}
-		lastTick = curTick;
+		lastTick = System.currentTimeMillis();
 
 		this.markDirty();
 
@@ -195,25 +193,18 @@ public class RadiantTroveTileEntity extends ImmanenceTileEntity implements IMani
 			return;
 		}
 
-		boolean fullStack = ConfigHandler.trovesDispense;
-
-		int count;
-
-		if (fullStack) {
-			count = stack.getMaxStackSize();
-		} else {
-			count = 1;
-		}
-
-		if (player.isSneaking()) {
-			count = (fullStack) ? 1 : stack.getMaxStackSize();
-		}
+		// TODO: This is happening on the remote
+		ServerNetwork network = getServerNetwork();
+		boolean trovesDispense = network != null && network.getTrovesDispense();
+		int count = player.isSneaking() ? trovesDispense ? stack.getMaxStackSize() : 1 : trovesDispense ? 1 : stack.getMaxStackSize();
 
 		stack = inventory.extractItem(0, count, false);
 
-		EntityItem item = new EntityItem(world, player.posX, player.posY, player.posZ, stack);
-		item.setPickupDelay(0);
-		world.spawnEntity(item);
+		IItemHandler inventory = player.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, EnumFacing.UP);
+		ItemStack result = ItemHandlerHelper.insertItemStacked(inventory, stack, false);
+		if (!result.isEmpty()) {
+			Block.spawnAsEntity(world, player.getPosition(), result);
+		}
 	}
 
 	@Override
@@ -437,6 +428,7 @@ public class RadiantTroveTileEntity extends ImmanenceTileEntity implements IMani
 
 		/**
 		 * Returns the actual number of upgrades, rather than their upgrade potency values.
+		 *
 		 * @return X is the number of storage upgrades, Y the number of optional upgrades
 		 */
 		public Point getTotalUpgradesCount () {

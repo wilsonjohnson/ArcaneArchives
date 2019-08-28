@@ -48,8 +48,12 @@ public class RadiantResonatorTileEntity extends ImmanenceTileEntity {
 			return;
 		}
 
-		// This will have to be updated to hive networks TODO
-		EntityPlayer player = world.getPlayerEntityByUUID(networkId);
+		ServerNetwork network = getServerNetwork();
+		if (network == null) {
+			return;
+		}
+
+		EntityPlayer player = network.getPlayer();
 
 		// Don't tick if the player isn't online
 		if (player == null) {
@@ -173,22 +177,22 @@ public class RadiantResonatorTileEntity extends ImmanenceTileEntity {
 	}
 
 	@Override
-	protected boolean shouldPlaySound() {
+	protected boolean shouldPlaySound () {
 		return ConfigHandler.soundConfig.resonatorTicking && super.shouldPlaySound() && !breaking && canTick() == TickResult.TICKING && world.isAirBlock(pos.up());
 	}
 
 	@Override
-	protected float getVolume() {
+	protected float getVolume () {
 		return 0.35f;
 	}
 
 	@Override
-	protected boolean hasSound() {
+	protected boolean hasSound () {
 		return true;
 	}
 
 	@Override
-	protected ResourceLocation getSound() {
+	protected ResourceLocation getSound () {
 		return new ResourceLocation(ArcaneArchives.MODID, "resonator.loop");
 	}
 
